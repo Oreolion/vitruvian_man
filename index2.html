@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Vitruvian Proportions — Annotated Table & Vector Figure</title><style>body{font-family:Inter, system-ui, Arial;background:#071025;color:#eaf2ff;padding:18px}h1{margin:0 0 8px}p{color:#9fb0c9}section.card{background:linear-gradient(180deg,#07121b,#06101a);padding:12px;border-radius:10px;box-shadow:0 8px 24px rgba(2,6,23,0.7);margin-top:12px}label,input{font-size:14px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:left}th{color:#ffd27f}code{background:#071324;padding:3px 6px;border-radius:6px;color:#bfe3ff}svg{width:100%;height:auto;display:block;border-radius:6px}small{color:#88a0bf}</style></head><body>
+<h1>Vitruvian Proportions — Annotated Numeric Table & Vector Figure</h1>
+<p>Enter a model height (in mm); the table will compute Leonardo/Vitruvian proportions and the SVG on the right draws a refined vector Vitruvian figure using those exact marginal ratios.</p>
+<section class="card"><div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:1;min-width:260px">
+<label>Model height (mm): <input id="H" type="number" value="1800" style="width:120px;margin-left:8px"></label>
+<button id="go" style="margin-left:8px;padding:6px 10px;background:#ffd27f;border:none;border-radius:6px;cursor:pointer">Compute</button>
+<div id="notes" style="margin-top:8px;color:#9fb0c9;font-size:13px">Proportions are taken from Vitruvian/Vitruvius canonical ratios and Leonardo's placement (square center at genitals; circle center at navel). See sources in description.</div>
+<table id="tbl"><thead><tr><th>Measure (Vitruvian)</th><th>Ratio (of H)</th><th>Formula</th><th>Value (mm)</th></tr></thead><tbody></tbody></table>
+<p style="margin-top:6px;color:#9fb0c9"><strong>Quick keys:</strong> head = H/8; arm-span = H; foot = H/6; hand = H/10; elbow→hand = H/4; shoulder width = H/4; navel ≈ 0.53H (circle center); square center (genitals) = 0.5H.</p>
+</div>
+<div style="flex:1.1;min-width:340px"><svg id="vit" viewBox="0 0 600 700" role="img" aria-label="Vitruvian vector figure">
+<defs><style>.stroke{stroke:#e6eef8;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}.accent{stroke:#ffd27f;stroke-width:2.4;fill:none}</style></defs>
+<rect width="600" height="700" fill="transparent"/>
+<!-- Square will be drawn -->
+<rect id="square" x="80" y="100" width="440" height="440" class="stroke" opacity="0.6"/>
+<!-- Circle -->
+<circle id="circle" cx="300" cy="300" r="200" class="accent" opacity="0.85"/>
+<g id="figuregrp"/>
+</svg>
+</div></div></section>
+
+<section class="card" style="margin-top:12px"><h3 style="margin:0">Sources & Assumptions</h3>
+<p style="margin:8px 0;color:#9fb0c9">This generator uses Vitruvius's canonical ratios (head ≈ 1/8 height; foot ≈ 1/6 height; forearm ≈ 1/4 height; hand ≈ 1/10 height; shoulder width ≈ 1/4 height) and Leonardo's placement: the square is centered on the genitals while the circle is centered on the navel (Leonardo corrected earlier misconceptions). These are classical proportions summarized by Vitruvius and reproduced by Leonardo; they are widely documented in art-history sources and translations.</p>
+<small style="color:#88a0bf">If you need exact transcription of Leonardo's marginal notes (word-for-word), I can add line-by-line marginal text alongside the drawing.</small>
+</section>
+
+<script>
+const ratios = [
+  {name:'Total height (H)', r:1, expr:'H'},
+  {name:'Arm span (fingertip→fingertip)', r:1, expr:'H'},
+  {name:'Head (whole head height)', r:1/8, expr:'H/8'},
+  {name:'Hairline to chin', r:1/10, expr:'H/10'},
+  {name:'Face (chin to hairline)', r:1/10, expr:'H/10'},
+  {name:'Hand length', r:1/10, expr:'H/10'},
+  {name:'Elbow to tip of hand', r:1/4, expr:'H/4'},
+  {name:'Elbow to armpit', r:1/8, expr:'H/8'},
+  {name:'Breadth of chest/shoulders (max)', r:1/4, expr:'H/4'},
+  {name:'Foot length', r:1/6, expr:'H/6'},
+  {name:'Navel height above soles (circle center)', r:0.53, expr:'~0.53H (Leonardo placement)'},
+  {name:'Genitals/root (square center)', r:0.5, expr:'H/2'},
+  {name:'Knee to sole', r:1/4, expr:'H/4'},
+  {name:'Knee to genitals', r:1/4, expr:'H/4'}
+];
+
+function mm(x){return Math.round(x*10)/10}
+function buildTable(H){const tbody=document.querySelector('#tbl tbody');tbody.innerHTML='';ratios.forEach(r=>{const v = (typeof r.r==='number')? r.r*H : NaN; const tr=document.createElement('tr'); tr.innerHTML = `<td>${r.name}</td><td>${(typeof r.r==='number')? r.r : ''}</td><td><code>${r.expr}</code></td><td>${isNaN(v)? r.expr : mm(v) + ' mm'}</td>`; tbody.appendChild(tr)});
+}
+
+function drawFigure(H){const g = document.getElementById('figuregrp'); g.innerHTML='';
+  // Visual mapping: map H -> square side = 440 visual units
+  const side = 440; const top = 100; const baseline = top + side; const centerX = 300;
+  const scale = side / H; // mm->visual
+  // compute key points in visual coords
+  const headH = H/8 * scale;
+  const footLen = H/6 * scale;
+  const navelY = baseline - (0.53*H*scale);
+  const genitalsY = baseline - (0.5*H*scale);
+  // draw center markers
+  const nav = document.createElementNS('http://www.w3.org/2000/svg','circle'); nav.setAttribute('cx',centerX); nav.setAttribute('cy',navelY); nav.setAttribute('r',4); nav.setAttribute('fill','#ffd27f'); g.appendChild(nav);
+  const gen = document.createElementNS('http://www.w3.org/2000/svg','circle'); gen.setAttribute('cx',centerX); gen.setAttribute('cy',genitalsY); gen.setAttribute('r',3); gen.setAttribute('fill','#7fd6ff'); g.appendChild(gen);
+  // head top
+  const headTopY = baseline - (H*scale);
+  const chinY = headTopY + headH*0.2;
+  // shoulders approx
+  const shouldersY = headTopY + headH*1.2;
+  // square-posture hands (horizontal)
+  const halfSpan = side/2;
+  const leftH = [centerX-halfSpan, navelY]; const rightH = [centerX+halfSpan, navelY];
+  // circle posture: compute intersection points on circle centered at (300,300) radius 200
+  const cCx = 300; const cCy = 300; const cR = 200;
+  function circlePt(angle){return [cCx + cR*Math.cos(angle), cCy + cR*Math.sin(angle)];}
+  const angles = {leftArm:-2.1, rightArm:-1.05, leftLeg:2.9, rightLeg:0.35};
+  const cLeftHand = circlePt(angles.leftArm); const cRightHand = circlePt(angles.rightArm);
+  const cLeftFoot = circlePt(angles.leftLeg); const cRightFoot = circlePt(angles.rightLeg);
+  // torso
+  const torso = document.createElementNS('http://www.w3.org/2000/svg','line'); torso.setAttribute('x1',centerX); torso.setAttribute('y1',chinY); torso.setAttribute('x2',centerX); torso.setAttribute('y2',genitalsY); torso.setAttribute('class','stroke'); g.appendChild(torso);
+  // head circle
+  const hcirc = document.createElementNS('http://www.w3.org/2000/svg','circle'); hcirc.setAttribute('cx',centerX); hcirc.setAttribute('cy',headTopY + headH/2); hcirc.setAttribute('r',headH/2); hcirc.setAttribute('class','stroke'); g.appendChild(hcirc);
+  // square posture limbs (dashed)
+  function line(p,q,cls,opts){const l=document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1',p[0]); l.setAttribute('y1',p[1]); l.setAttribute('x2',q[0]); l.setAttribute('y2',q[1]); l.setAttribute('stroke',opts?.stroke||'#bfe3ff'); l.setAttribute('stroke-width',opts?.w||1.6); if(opts?.dash) l.setAttribute('stroke-dasharray','6 4'); g.appendChild(l);}
+  line([centerX,shouldersY], leftH, 'stroke',{stroke:'#bfe3ff'}); line([centerX,shouldersY], rightH, 'stroke',{stroke:'#bfe3ff'});
+  // circle posture limbs (solid golden)
+  line([centerX,shouldersY], cLeftHand, 'accent',{stroke:'#ffd27f',w:2.4}); line([centerX,shouldersY], cRightHand, 'accent',{stroke:'#ffd27f',w:2.4});
+  // legs
+  const feetLeft = [centerX - side*0.12, baseline]; const feetRight = [centerX + side*0.12, baseline];
+  line([centerX,genitalsY], feetLeft, 'stroke',{stroke:'#bfe3ff'}); line([centerX,genitalsY], feetRight,'stroke',{stroke:'#bfe3ff'});
+  line([centerX,genitalsY], cLeftFoot,'accent',{stroke:'#ffd27f',w:2.4}); line([centerX,genitalsY], cRightFoot,'accent',{stroke:'#ffd27f',w:2.4});
+  // annotate
+  const t = document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x',12); t.setAttribute('y',680); t.setAttribute('fill','#9fb0c9'); t.setAttribute('font-size',12); t.textContent = `H = ${H} mm mapped → square side = 440 visual units; navel at ${Math.round(0.53*H)} mm (visual y=${Math.round(navelY)})`; g.appendChild(t);
+}
+
+document.getElementById('go').addEventListener('click', ()=>{const H = parseFloat(document.getElementById('H').value) || 1800; buildTable(H); drawFigure(H);} );
+// initial
+buildTable(1800); drawFigure(1800);
+</script></body></html>
