@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Vitruvian Construction + Polygon → Circle Convergence</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#ffd27f;--muted:#94a3b8}
+    body{background:linear-gradient(180deg,#081127 0%,#07101a 100%);color:#e6eef8;font-family:Inter,ui-sans-serif,system-ui,Arial;padding:18px}
+    .wrap{max-width:980px;margin:0 auto}
+    h1{font-size:20px;margin:0 0 8px}
+    p{margin:6px 0;color:var(--muted)}
+    .canvas{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border-radius:8px;padding:12px;box-shadow:0 10px 30px rgba(2,6,23,0.6)}
+    svg{width:100%;height:auto;display:block}
+    .controls{display:flex;gap:8px;align-items:center;margin:10px 0}
+    .btn{background:var(--accent);color:#07101a;padding:6px 10px;border-radius:6px;border:none;font-weight:600;cursor:pointer}
+    label{color:var(--muted);font-size:13px}
+    .legend{font-size:13px;color:var(--muted);margin-top:8px}
+    code{background:#071324;padding:4px 6px;border-radius:6px;color:#bfe3ff}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Vitruvian Construction + Polygon → Circle Convergence</h1>
+    <p>Interactive SVG: polygon approximations (n=4,8,16,64) converge to the circle. Overlaid is a Vitruvian-style stick figure built from classic proportions (arm-span = height; navel as circle center). Use the toggles to explore.</p>
+
+    <div class="canvas">
+      <div class="controls">
+        <button class="btn" id="togglePolys">Toggle Polygons</button>
+        <button class="btn" id="toggleFigure">Toggle Figure</button>
+        <label style="margin-left:10px">Model height (mm): <input id="heightInput" type="number" value="1800" style="width:90px;margin-left:8px"/></label>
+        <button class="btn" id="redraw">Redraw</button>
+      </div>
+
+      <!-- SVG viewport: circle centered at (300,300) radius 200 — scaled to model height -->
+      <svg id="viz" viewBox="0 0 600 600" role="img" aria-label="Polygon convergence and Vitruvian overlay">
+        <defs>
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        <!-- background guide grid (subtle) -->
+        <rect width="600" height="600" fill="transparent"/>
+
+        <!-- Circle (the ideal) -->
+        <g id="circleGroup">
+          <circle id="mainCircle" cx="300" cy="300" r="200" fill="none" stroke="#ffd27f" stroke-width="1.8" opacity="0.95" />
+        </g>
+
+        <!-- Square (Vitruvian square) -->
+        <rect id="square" x="100" y="100" width="400" height="400" fill="none" stroke="#7fd6ff" stroke-width="1.2" opacity="0.7" />
+
+        <!-- Polygons container -->
+        <g id="polygons"></g>
+
+        <!-- Vitruvian stick-figure group -->
+        <g id="figure" stroke="#e6eef8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.95"></g>
+
+        <!-- Labels -->
+        <g id="labels" fill="#94a3b8" font-size="12">
+          <text x="12" y="18">Circle radius = 200 units (visual scale)</text>
+          <text x="12" y="36">Center = navel (300,300) in this diagram</text>
+        </g>
+      </svg>
+
+      <div class="legend">
+        <strong>Notes:</strong> This interactive uses a model height (example default 1800 mm). The drawing maps that height to the square side (arm-span = height) and positions the circle center at the navel. The stick figure uses classical proportions (see code comments). You can change the height and redraw to see scaling.
+      </div>
+    </div>
+
+    <p style="margin-top:12px">If you'd like, I can: <em>export static PNG frames</em> of each polygon step, produce exact numeric construction steps for printing, or refine the human proportions to an exact Vitruvian transcription (Leonardo's marginal notes).</p>
+  </div>
+
+  <script>
+  // ---------- Core geometry helpers ----------
+  function polygonPath(cx, cy, r, n, rotation=0){
+    const pts = [];
+    for(let k=0;k<n;k++){
+      const theta = rotation + 2*Math.PI*k/n;
+      const x = cx + r*Math.cos(theta);
+      const y = cy + r*Math.sin(theta);
+      pts.push([x,y]);
+    }
+    return pts;
+  }
+  function ptsToPath(pts){
+    return pts.map((p,i)=> (i? 'L':'M') + p[0].toFixed(3) + ' ' + p[1].toFixed(3)).join(' ') + ' Z';
+  }
+
+  // ---------- Rendering ----------
+  const viz = document.getElementById('viz');
+  const polysG = document.getElementById('polygons');
+  const figG = document.getElementById('figure');
+  const mainCircle = document.getElementById('mainCircle');
+  const square = document.getElementById('square');
+
+  const defaults = {cx:300, cy:300, r:200};
+  const polyNs = [4,8,16,64];
+  let showPolys = true, showFig = true;
+
+  function drawPolygons(){
+    polysG.innerHTML = '';
+    const colors = ['#ff6b6b','#ffd27f','#8fffc0','#7fd6ff'];
+    polyNs.forEach((n,idx)=>{
+      const pts = polygonPath(defaults.cx, defaults.cy, defaults.r, n, -Math.PI/2);
+      const path = ptsToPath(pts);
+      const el = document.createElementNS('http://www.w3.org/2000/svg','path');
+      el.setAttribute('d', path);
+      el.setAttribute('fill', 'none');
+      el.setAttribute('stroke', colors[idx%colors.length]);
+      el.setAttribute('stroke-width', Math.max(0.5,2 - idx*0.3));
+      el.setAttribute('opacity', idx===polyNs.length-1 ? 0.85 : 0.55);
+      el.setAttribute('id', 'poly' + n);
+      polysG.appendChild(el);
+    });
+  }
+
+  // ---------- Vitruvian stick figure construction ----------
+  // We'll use a simplified classical proportions set (canonical):
+  // - arm span = height (square side) => side = H
+  // - navel as circle center, located approximately at 0.53*H from soles for a classical canon
+  // - head length = H/8  (approx classic ideal)
+  // - torso divisions (approx): pubis at 0.47H, navel at 0.53H, shoulders at ~0.9*head_to_top, etc.
+  // This is a practical/visual construction to show the relationship; numeric refinements can be made.
+
+  function drawFigure(H_mm){
+    figG.innerHTML = '';
+    // Map model height (H_mm) to visual square side 400 units
+    const side = 400; // visual mapping
+    const scale = side / H_mm; // mm -> visual unit
+
+    // Visual coordinates: baseline (feet) at y = 500, top of head at y = 100 (so height maps to 400)
+    const baseline = 500;
+    const top = baseline - side;
+
+    // Classic placements (fractions of H): using often-cited Vitruvian ratios
+    const H = side;
+    const head = H / 8; // head height
+    const navel_from_feet = 0.53 * H; // navel height above feet
+    const navelY = baseline - navel_from_feet;
+    const centerX = 300; // midline
+
+    // key y positions
+    const headTopY = top;
+    const chinY = headTopY + head*0.2; // approximate
+    const shouldersY = top + head*1.2; // approx
+    const chestY = top + head*1.6;
+    const pubisY = baseline - 0.47*H;
+
+    // points for the 'square' posture (arms extended horizontally)
+    const halfSpan = side/2; // arm span/2
+    const leftHand = [centerX - halfSpan, navelY];
+    const rightHand = [centerX + halfSpan, navelY];
+    const feetLeft = [centerX - side*0.12, baseline];
+    const feetRight = [centerX + side*0.12, baseline];
+    const headTop = [centerX, headTopY];
+    const chin = [centerX, chinY];
+    const pubis = [centerX, pubisY];
+
+    // circle posture (arms and legs opened to touch circle)
+    // We'll compute intersections with circle at angle positions similar to Leonardo's drawing
+    const angles = {leftArm:-Math.PI*2/3, rightArm:-Math.PI/3, leftLeg:Math.PI*5/6, rightLeg:Math.PI*1/6};
+    function circlePoint(angle){
+      return [defaults.cx + defaults.r*Math.cos(angle), defaults.cy + defaults.r*Math.sin(angle)];
+    }
+    const cLeftHand = circlePoint(angles.leftArm);
+    const cRightHand = circlePoint(angles.rightArm);
+    const cLeftFoot = circlePoint(angles.leftLeg);
+    const cRightFoot = circlePoint(angles.rightLeg);
+
+    // Draw torso (center line)
+    const torso = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const torsoPath = `M ${centerX} ${chinY} L ${centerX} ${pubisY}`;
+    torso.setAttribute('d', torsoPath); torso.setAttribute('stroke','#e6eef8'); torso.setAttribute('stroke-width','2'); figG.appendChild(torso);
+
+    // Draw head
+    const headCircle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    headCircle.setAttribute('cx', centerX); headCircle.setAttribute('cy', headTopY + head/2); headCircle.setAttribute('r', head/2); headCircle.setAttribute('fill','none'); headCircle.setAttribute('stroke','#e6eef8'); headCircle.setAttribute('stroke-width','1.2'); figG.appendChild(headCircle);
+
+    // Draw square-posture limbs (thin, dashed)
+    function line(p,q,opts={}){
+      const el = document.createElementNS('http://www.w3.org/2000/svg','line');
+      el.setAttribute('x1', p[0]); el.setAttribute('y1', p[1]); el.setAttribute('x2', q[0]); el.setAttribute('y2', q[1]);
+      el.setAttribute('stroke', opts.stroke||'#bfe3ff'); el.setAttribute('stroke-width', opts.width||1.8);
+      if(opts.dash) el.setAttribute('stroke-dasharray','6 4');
+      figG.appendChild(el);
+      return el;
+    }
+
+    // square posture (arms horizontal) — from shoulders to hands
+    line([centerX, shouldersY], leftHand, {stroke:'#bfe3ff',width:2,dash:false});
+    line([centerX, shouldersY], rightHand, {stroke:'#bfe3ff',width:2,dash:false});
+    // legs straight down
+    line([centerX,pubisY],[feetLeft[0],feetLeft[1]],{stroke:'#bfe3ff',width:2});
+    line([centerX,pubisY],[feetRight[0],feetRight[1]],{stroke:'#bfe3ff',width:2});
+
+    // circle posture (solid, brighter)
+    line([centerX, shouldersY], cLeftHand, {stroke:'#ffd27f',width:2});
+    line([centerX, shouldersY], cRightHand, {stroke:'#ffd27f',width:2});
+    line([pubis[0],pubis[1]], cLeftFoot, {stroke:'#ffd27f',width:2});
+    line([pubis[0],pubis[1]], cRightFoot, {stroke:'#ffd27f',width:2});
+
+    // draw joints
+    function dot(x,y,color){const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',x);c.setAttribute('cy',y);c.setAttribute('r',3);c.setAttribute('fill',color||'#fff');figG.appendChild(c)}
+    dot(centerX, navelY, '#94a3b8'); // navel center
+    dot(cLeftHand[0], cLeftHand[1], '#ffd27f'); dot(cRightHand[0], cRightHand[1],'#ffd27f');
+    dot(cLeftFoot[0], cLeftFoot[1],'#ffd27f'); dot(cRightFoot[0], cRightFoot[1],'#ffd27f');
+
+    // annotations
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',12); t.setAttribute('y',560); t.setAttribute('fill','#94a3b8'); t.setAttribute('font-size',12);
+    t.textContent = `Model H (mapped) = ${H.toFixed(1)} units. Navel Y = ${navelY.toFixed(1)} (visual). Arm-span = ${side} visual units.`;
+    figG.appendChild(t);
+  }
+
+  // ---------- Controls ----------
+  document.getElementById('togglePolys').addEventListener('click', ()=>{showPolys=!showPolys; polysG.style.display = showPolys? '': 'none'; document.getElementById('togglePolys').textContent = showPolys? 'Hide Polygons':'Show Polygons'});
+  document.getElementById('toggleFigure').addEventListener('click', ()=>{showFig=!showFig; figG.style.display = showFig? '': 'none'; document.getElementById('toggleFigure').textContent = showFig? 'Hide Figure':'Show Figure'});
+  document.getElementById('redraw').addEventListener('click', ()=>{const h=document.getElementById('heightInput').value; drawAll(parseFloat(h)||1800)});
+
+  function drawAll(Hmm){
+    // keep circle and square positions fixed in visual coords; map H_mm to side=400 in drawFigure
+    drawPolygons();
+    drawFigure(Hmm);
+    polysG.style.display = showPolys ? '': 'none';
+    figG.style.display = showFig ? '': 'none';
+  }
+
+  // initial draw
+  drawAll(parseFloat(document.getElementById('heightInput').value));
+
+  // allow export of PNG frames (optional) — small utility
+  function exportPNG(){
+    const svg = document.getElementById('viz');
+    const serializer = new XMLSerializer();
+    const svgStr = serializer.serializeToString(svg);
+    const blob = new Blob([svgStr], {type: 'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = function(){
+      const canvas = document.createElement('canvas'); canvas.width=1200; canvas.height=1200; const ctx=canvas.getContext('2d');
+      ctx.fillStyle='#07101a'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      const png = canvas.toDataURL('image/png');
+      const a = document.createElement('a'); a.href=png; a.download='vitruvian_convergence.png'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    }
+    img.src = url;
+  }
+
+  // CTRL+E to export
+  window.addEventListener('keydown', (e)=>{ if(e.ctrlKey && e.key.toLowerCase()==='e'){ exportPNG(); } });
+  </script>
+</body>
+</html>
